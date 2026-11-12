@@ -55,15 +55,18 @@ async function handle(raw){
   return brain(raw);
 }
 
-function listen(){
-  if(!SR)return say('Voice recognition is not supported here. Use Chrome on Android, or type.');
+async function listen(){
+  if(!SR)return say('This browser has no voice recognition. Open the app in Chrome, or type.');
   if(on){rec.stop();return}
   speechSynthesis.cancel();
+  try{const m=await navigator.mediaDevices.getUserMedia({audio:true});m.getTracks().forEach(t=>t.stop())}
+  catch(e){return say('Microphone is blocked. In Chrome: menu, Settings, Site settings, Microphone, allow this site.')}
+  let heard=false,err=false;
   rec=new SR();rec.lang=lang;rec.interimResults=true;rec.maxAlternatives=1;
   rec.onstart=()=>{on=true;mic.classList.add('on');state('listening','Listening')};
-  rec.onresult=e=>{const r=e.results[e.results.length-1];stat.textContent=r[0].transcript;if(r.isFinal)handle(r[0].transcript)};
-  rec.onerror=e=>{state('idle','Mic error: '+e.error)};
-  rec.onend=()=>{on=false;mic.classList.remove('on');if(core.className==='listening')state('idle','Standby')};
+  rec.onresult=e=>{heard=true;const r=e.results[e.results.length-1];stat.textContent=r[0].transcript;if(r.isFinal)handle(r[0].transcript)};
+  rec.onerror=e=>{err=true;add('j','Mic error: '+e.error+(e.error==='network'?' (needs internet)':/not-allowed/.test(e.error)?' (allow the microphone and the Google voice service)':''))};
+  rec.onend=()=>{on=false;mic.classList.remove('on');if(!heard&&!err)add('j',"I didn't catch anything. Tap the mic, wait for Listening, then speak.");if(core.className==='listening')state('idle','Standby')};
   rec.start();
 }
 
